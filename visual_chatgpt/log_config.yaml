@@ -1,0 +1,36 @@
+version: 1
+disable_existing_loggers: False
+formatters:
+  default:
+    (): uvicorn.logging.DefaultFormatter
+    format: "{'level':'%(levelname)s','ts':'%(asctime)s','msg':'%(message)s','pid':'%(process)d'}"
+    datefmt: "%Y-%m-%dT%H:%M:%S%z"
+  access:
+    (): uvicorn.logging.AccessFormatter
+    format: "{'level':'%(levelname)s','ts':'%(asctime)s','msg':'HTTP Request Response','req':'%(request_line)s','status':'%(status_code)s','ip':'%(client_addr)s','pid':'%(process)d'}"
+    datefmt: "%Y-%m-%dT%H:%M:%S%z"
+handlers:
+  default:
+    class: logging.StreamHandler
+    formatter: default
+    stream: ext://sys.stdout
+  access:
+    class: logging.StreamHandler
+    formatter: access
+    stream: ext://sys.stdout
+loggers:
+  uvicorn:
+    level: WARNING
+    propagate: False
+    handlers:
+      - default
+  uvicorn.error:
+    level: WARNING
+    propagate: False
+    handlers:
+      - default
+  uvicorn.access:
+    level: WARNING
+    propagate: False
+    handlers:
+      - access

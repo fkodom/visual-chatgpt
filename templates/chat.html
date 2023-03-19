@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Chatbot</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <div class="chatbox" id="chatbox">
+        </div>
+        <form id="message-form" onsubmit="return false;">
+            <textarea id="user-input" placeholder="Type a message..." rows="1"></textarea>
+            <input type="file" id="image-input" style="width: 25%; max-width: 250px;">
+            <button id="send-message" style="width: 10%; max-width: 75px;">Send</button>
+        </form>
+    </div>
+
+    <script>
+        function readFile(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    // Encode the image as base64
+                    const base64Image = e.target.result.replace(/^data:image\/\w+;base64,/, "");
+                    resolve(base64Image);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+        function adjustTextareaHeight(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = (textarea.scrollHeight) + 'px';
+        }
+
+        $("#user-input").on('input', function () {
+            adjustTextareaHeight(this);
+        });
+
+
+        $("#send-message").click(async () => {
+            const userInput = $("#user-input").val().trim();
+            const imageInput = $("#image-input")[0].files[0];
+            let imageData = null;
+
+            if (userInput || imageInput) {
+                if (imageInput) {
+                    imageData = await readFile(imageInput);
+                }
+
+                const response = await fetch("/predict/", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ text: userInput, image: imageData }),
+                });
+                const data = await response.json();
+
+                if (userInput) {
+                    $("#user-input").val("");
+                    $("#chatbox").append(`<div class="user-message">${userInput}</div>`);
+                }
+                if (imageData) {
+                    $("#chatbox").append(`<div class="user-message"><img src="data:image/png;base64,${imageData}" alt="${imageInput.name}" /></div>`);
+                    $("#image-input").val("");
+                }
+                if (data.messages) {
+                    for (const message of data.messages) {
+                        let messageHTML = "";
+                        if (message.text) {
+                            messageHTML += `<div class="chatbot-message">${message.text}</div>`;
+                        }
+                        if (message.image) {
+                            messageHTML += `<div class="chatbot-message"><img src="data:image/png;base64,${message.image}" style="height: auto; width: auto; max-width: 100%; max-height: 200px;"/></div>`;
+                        }
+                        $("#chatbox").append(messageHTML);
+                    }
+                }
+            }
+        });
+
+        $("#user-input").on('keydown', function (e) {
+            if (e.key === 'Enter') {
+                if (e.shiftKey) {
+                    // Add a new line to the textarea when SHIFT + ENTER is pressed
+                    return;
+                } else {
+                    // Send the message when ENTER is pressed
+                    e.preventDefault();
+                    $("#send-message").click();
+                }
+            }
+        });
+
+        // Load chat history
+        const chatHistory = JSON.parse('{{ chat_history | tojson | safe }}');
+        for (const message of chatHistory) {
+            let messageHTML = "";
+            let messageClass = "";
+            if (message.role === "user") {
+                messageClass = "user-message";
+            } else if (message.role === "assistant") {
+                messageClass = "chatbot-message";
+            } else {
+                messageClass = "system-message";
+            }
+
+            if (message.text) {
+                messageHTML += `<div class="${messageClass}">${message.text}</div>`;
+            }
+            if (message.image) {
+                messageHTML += `<div class="${messageClass}"><img src="data:image/png;base64,${message.image}" style="height: auto; width: auto; max-width: 100%; max-height: 200px;"/></div>`;
+            }
+            $("#chatbox").append(messageHTML);
+        }
+
+
+    </script>
+</body>
+
+</html>
